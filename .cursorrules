@@ -1,0 +1,81 @@
+# Cursor Rules for RHCI_Tools
+
+## Container Technology Standards
+
+### Container Runtime and Tools
+- **ALWAYS** use Podman and Podman Desktop for container operations
+- **NEVER** use Docker or Docker Desktop
+- When providing container commands, use `podman` instead of `docker`
+- When referencing container desktop applications, use Podman Desktop
+
+### Container Build Files
+- **ALWAYS** use `Containerfile` as the filename for container build definitions
+- **NEVER** use `Dockerfile`
+- When creating container build instructions, name the file `Containerfile`
+- When referencing build files in documentation or commands, use `Containerfile`
+
+### Container Commands
+- Use `podman build -f Containerfile` for building containers
+- Use `podman run` for running containers
+- Use `podman compose` for multi-container applications
+- Reference Podman-specific features and capabilities when applicable
+
+## Code Quality and Standards
+
+### General Practices
+- Write clean, readable, and well-documented code
+- Follow established coding conventions for the language in use
+- Include appropriate error handling and logging
+- Write meaningful commit messages following conventional commit standards
+
+### File Organization
+- Maintain clear project structure with logical file organization
+- Use descriptive file and directory names
+- Keep configuration files in appropriate directories
+
+## Documentation Standards
+
+### Documentation Location
+- **ALWAYS** place all documentation in the `Docs/` folder
+- Maintain a clear documentation structure within the `Docs/` directory
+- Use descriptive filenames that reflect the content (e.g., `installation-guide.md`, `api-reference.md`)
+
+### Documentation Maintenance
+- **MANDATORY**: Update relevant documentation when making code changes
+- **MANDATORY**: Update documentation when adding new features or changing functionality
+- Review and update documentation for accuracy during each development cycle
+- Ensure documentation stays current with code implementation
+
+### Documentation Content Requirements
+- Include setup instructions that reference Podman/Containerfile conventions
+- Document any Podman-specific configurations or requirements
+- Provide clear examples and use cases
+- Include troubleshooting sections where applicable
+- Maintain consistent formatting and style across all documentation files
+
+### Documentation Types
+- Keep technical documentation in `Docs/technical/`
+- Keep user guides in `Docs/guides/`
+- Keep API documentation in `Docs/api/`
+- Keep installation and setup docs in `Docs/setup/`
+- Maintain a main README.md in the project root that references the `Docs/` folder
+
+### Help Documentation
+- **MANDATORY**: Keep `Docs/README.md` synchronized with menu configuration changes
+- Update menu item sections and quickstarts when `Menu/config.yml` is modified
+- Ensure help topics align with `Docs/help_config.yml` configuration
+- Maintain comprehensive overviews for each menu category and tool
+- Provide clear "Purpose," "What it does," and "When to use" sections for all menu items
+
+### File Path and Case Sensitivity
+- **CRITICAL**: Always verify actual file paths and filenames before making suggestions
+- **MANDATORY**: Respect Linux case-sensitivity - filenames must match exactly
+- Before referencing any file in commands or documentation, check the actual filesystem
+- Validate that directories, filenames, and extensions match the real files on disk
+- Never assume filename casing - always verify with `ls` or directory listing
+
+## Security
+- Follow container security best practices with Podman
+- Use rootless containers when possible (Podman's default behavior)
+- Minimize container image attack surface
+- Keep base images updated and scan for vulnerabilities
