@@ -124,33 +124,46 @@ When you select a menu item with a command:
 
 ## Interactive Shell
 
-The menu system includes a built-in interactive shell accessible from both the main menu and sub-menus:
+The menu system includes a built-in interactive shell accessible from the main menu:
 
 ### Features
-- **Full Shell Access**: Type any command as if you were in a terminal
-- **Directory Navigation**: Use `cd` to change directories
+- **TUI-Integrated Shell**: Runs within the menu interface (no external shell)
+- **Real-time Output**: Command output displayed in scrollable text area
+- **Directory Navigation**: Use `cd` to change directories with prompt updates
 - **Built-in Commands**: 
-  - `help` - Show available shell commands
-  - `clear` - Clear the screen
+  - `help` - Show available shell commands and navigation
+  - `clear` - Clear the output area
   - `exit` or `quit` - Return to menu
-- **Command History**: Standard shell command execution with real-time output
-- **Error Handling**: Graceful handling of invalid commands
+- **Command Execution**: Full shell command support with output capture
+- **Error Handling**: Timeout protection and graceful error handling
+
+### Interface
+- **Output Area**: Scrollable display of command history and results
+- **Command Input**: Text field for typing commands
+- **Buttons**: Execute, Clear, Help, and Back to Menu
+- **Keyboard Shortcuts**: Enter to execute, Esc to return, Tab to navigate
 
 ### Usage
-1. Select **🖥️ Command Shell** from any menu
-2. Type commands and press Enter
-3. Use `exit` to return to the menu
-4. All standard shell commands are available (`ls`, `pwd`, `cd`, etc.)
+1. Select **🖥️ Command Shell** from the main menu
+2. Type commands in the input field
+3. Press **Execute** button or **Enter** to run commands
+4. Use **Clear** to clear output, **Help** for assistance
+5. Type `exit` or click **← Back to Menu** to return
+6. All standard shell commands work (`ls`, `pwd`, `cd`, etc.)
 
 ## File Structure
 
 ```
 Python_TUI/
-├── menu_system.py      # Main TUI application
-├── test_menu.py        # Test script with sample data
-├── config.yml          # Your menu configuration
-├── requirements.txt    # Python dependencies
-└── README.md          # This file
+├── menu_system.py          # Main TUI application
+├── test_menu.py            # Test script with sample data
+├── demo_shell.py           # Standalone shell demo
+├── test_shell_frame.py     # Shell implementation tests
+├── validate_fixes.py       # Fix validation script
+├── setup.py                # Installation script
+├── config.yml              # Your menu configuration
+├── requirements.txt        # Python dependencies
+└── README.md              # This file
 ```
 
 ## Example Configuration
@@ -180,6 +193,14 @@ pip install asciimatics PyYAML
 - Ensure your terminal supports color and cursor control
 - Try resizing the terminal window if display appears corrupted
 - Use `python test_menu.py` to verify basic functionality
+
+### Shell Issues
+- The shell runs within the TUI - typing `exit` returns to the menu (not terminal)
+- **Tab completion is not available** - this is a TUI shell, not a full terminal
+- Interactive programs may not work properly in the TUI shell
+- If commands seem unresponsive, they have a 30-second timeout
+- Use `python test_shell_frame.py` to verify shell implementation
+- Use `python test_all_fixes.py` to validate all recent fixes
 
 ## Development
 

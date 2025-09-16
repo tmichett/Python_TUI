@@ -8,6 +8,7 @@ import yaml
 import os
 import subprocess
 import sys
+import time
 from typing import Dict, List, Any, Optional
 from asciimatics.widgets import Frame, ListBox, Layout, Divider, Text, Button, TextBox, Label, Widget
 from asciimatics.scene import Scene
@@ -44,6 +45,215 @@ class MenuConfig:
     def menu_items(self) -> List[Dict[str, Any]]:
         """Get the main menu items."""
         return self.config.get('menu_items', [])
+
+
+class ShellFrame(Frame):
+    """Interactive shell frame within the TUI."""
+    
+    def __init__(self, screen, menu_system):
+        super(ShellFrame, self).__init__(screen,
+                                       screen.height,
+                                       screen.width,
+                                       has_border=False,
+                                       title="Interactive Shell")
+        
+        self._menu_system = menu_system
+        self._current_dir = os.getcwd()
+        self._command_history = []
+        self._history_index = 0
+        
+        # Main layout
+        layout = Layout([100], fill_frame=True)
+        self.add_layout(layout)
+        
+        # Title
+        layout.add_widget(Label("=== Interactive Command Shell ===", align="^"))
+        layout.add_widget(Divider())
+        
+        # Output area
+        self._output = TextBox(height=screen.height - 8,
+                              as_string=True,
+                              readonly=True,
+                              line_wrap=True)
+        self._output.value = self._get_initial_text()
+        layout.add_widget(self._output)
+        
+        # Input area
+        layout.add_widget(Divider())
+        
+        # Command input layout
+        input_layout = Layout([20, 80])
+        self.add_layout(input_layout)
+        
+        # Prompt
+        self._prompt_label = Label(self._get_prompt())
+        input_layout.add_widget(self._prompt_label, 0)
+        
+        # Command input - make it focusable by default
+        self._command_input = Text()
+        input_layout.add_widget(self._command_input, 1)
+        
+        # Button layout
+        button_layout = Layout([25, 25, 25, 25])
+        self.add_layout(button_layout)
+        button_layout.add_widget(Button("Execute", self._execute_command), 0)
+        button_layout.add_widget(Button("Clear", self._clear_output), 1)
+        button_layout.add_widget(Button("Help", self._show_help), 2)
+        button_layout.add_widget(Button("← Back to Menu", self._back_to_menu), 3)
+        
+        self.fix()
+    
+    def _get_initial_text(self):
+        """Get initial shell text."""
+        text = "Interactive Command Shell\n"
+        text += "=" * 50 + "\n\n"
+        text += f"Current directory: {self._current_dir}\n"
+        text += "Type commands and press Execute or Enter\n"
+        text += "Type 'exit' to return to menu\n"
+        text += "Type 'help' for available commands\n\n"
+        return text
+    
+    def _get_prompt(self):
+        """Get the current shell prompt."""
+        return f"[{os.path.basename(self._current_dir)}]$ "
+    
+    def _execute_command(self):
+        """Execute the entered command."""
+        command = self._command_input.value.strip()
+        
+        if not command:
+            return
+        
+        # Add to history
+        if command not in self._command_history:
+            self._command_history.append(command)
+        
+        # Add command to output
+        current_output = self._output.value
+        current_output += f"{self._get_prompt()}{command}\n"
+        
+        # Handle special commands
+        if command.lower() in ['exit', 'quit']:
+            current_output += "Returning to menu...\n"
+            self._output.value = current_output
+            self.screen.refresh()
+            self._back_to_menu()
+            return
+        
+        if command.lower() == 'help':
+            current_output += self._get_help_text() + "\n"
+            self._output.value = current_output
+            self._command_input.value = ""
+            self.screen.refresh()
+            return
+        
+        if command.lower() == 'clear':
+            self._clear_output()
+            return
+        
+        # Handle cd command
+        if command.startswith('cd '):
+            new_dir = command[3:].strip()
+            try:
+                if not new_dir:
+                    new_dir = os.path.expanduser('~')
+                os.chdir(os.path.expanduser(new_dir))
+                self._current_dir = os.getcwd()
+                current_output += f"Changed directory to: {self._current_dir}\n"
+                self._prompt_label.text = self._get_prompt()
+            except Exception as e:
+                current_output += f"cd: {e}\n"
+            
+            self._output.value = current_output + "\n"
+            self._command_input.value = ""
+            self.screen.refresh()
+            return
+        
+        # Execute other commands
+        try:
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                cwd=self._current_dir,
+                timeout=30  # 30 second timeout
+            )
+            
+            if result.stdout:
+                current_output += result.stdout
+            if result.stderr:
+                current_output += result.stderr
+            if result.returncode != 0:
+                current_output += f"\n[Command exited with code {result.returncode}]\n"
+            
+        except subprocess.TimeoutExpired:
+            current_output += "Command timed out after 30 seconds\n"
+        except Exception as e:
+            current_output += f"Error executing command: {e}\n"
+        
+        current_output += "\n"
+        self._output.value = current_output
+        self._command_input.value = ""
+        
+        # Auto-scroll to bottom by updating the value which will trigger refresh
+        lines = current_output.split('\n')
+        if len(lines) > 20:  # If more than ~20 lines, show recent output
+            recent_lines = lines[-15:]  # Show last 15 lines
+            self._output.value = '\n'.join(recent_lines)
+        
+        self.screen.refresh()
+    
+    def _get_help_text(self):
+        """Get help text for shell commands."""
+        return """Available commands:
+  help        - Show this help
+  exit, quit  - Return to menu
+  clear       - Clear output
+  cd <dir>    - Change directory
+  pwd         - Show current directory
+  ls          - List files
+  Any other shell command...
+
+Navigation:
+  Tab/Shift+Tab - Navigate between fields
+  Enter         - Execute command
+  Esc           - Return to menu
+
+Note: This is a TUI-based shell interface.
+Command completion (Tab completion) is not available.
+Interactive programs may not work properly.
+For full shell features, use the system terminal."""
+    
+    def _clear_output(self):
+        """Clear the output area."""
+        self._output.value = self._get_initial_text()
+        self.screen.refresh()
+    
+    def _show_help(self):
+        """Show help."""
+        current_output = self._output.value
+        current_output += f"{self._get_prompt()}help\n"
+        current_output += self._get_help_text() + "\n\n"
+        self._output.value = current_output
+        self.screen.refresh()
+    
+    def _back_to_menu(self):
+        """Return to the main menu."""
+        self._menu_system.show_main_menu()
+    
+    def process_event(self, event):
+        """Process keyboard events."""
+        if isinstance(event, KeyboardEvent):
+            if event.key_code == Screen.KEY_ESCAPE:
+                self._back_to_menu()
+                return None
+            elif event.key_code == 10 or event.key_code == 13:  # Enter key
+                # Execute command when Enter is pressed
+                self._execute_command()
+                return None
+        
+        return super(ShellFrame, self).process_event(event)
 
 
 class HelpPanel(Frame):
@@ -93,6 +303,7 @@ class SubMenuFrame(Frame):
         self._menu_item = menu_item
         self._menu_system = menu_system
         self._current_selection = 0
+        self._last_action_time = 0  # Prevent rapid duplicate actions
         
         # Main layout
         layout = Layout([100], fill_frame=True)
@@ -138,6 +349,12 @@ class SubMenuFrame(Frame):
     
     def _on_select(self):
         """Handle menu item selection."""
+        current_time = time.time()
+        # Prevent rapid duplicate selections (within 1 second)
+        if current_time - self._last_action_time < 1.0:
+            return
+        self._last_action_time = current_time
+        
         selection = self._menu_list.value
         
         if selection == -1:  # Back to main menu
@@ -180,25 +397,39 @@ class SubMenuFrame(Frame):
                 self.screen.refresh()
                 
                 try:
-                    # Execute command
-                    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+                    # Execute command with timeout
+                    result = subprocess.run(
+                        command, 
+                        shell=True, 
+                        capture_output=True, 
+                        text=True, 
+                        timeout=30
+                    )
                     
                     # Show result
                     result_text = f"Command: {command}\n\n"
                     if result.returncode == 0:
                         result_text += f"Output:\n{result.stdout}"
+                        if result.stderr:
+                            result_text += f"\nWarnings:\n{result.stderr}"
                     else:
                         result_text += f"Error (exit code {result.returncode}):\n{result.stderr}"
+                        if result.stdout:
+                            result_text += f"\nOutput:\n{result.stdout}"
                     
+                    result_text += f"\n\nPress Enter or Close to return to menu."
                     self._menu_system.show_help(result_text)
                     
+                except subprocess.TimeoutExpired:
+                    self._menu_system.show_help(f"Command '{command}' timed out after 30 seconds.\n\nPress Enter or Close to return to menu.")
                 except Exception as e:
-                    self._menu_system.show_help(f"Error executing command: {str(e)}")
+                    self._menu_system.show_help(f"Error executing command '{command}':\n{str(e)}\n\nPress Enter or Close to return to menu.")
                 
-                # Reset status
-                self._status_text.value = "Command completed. Press F1 for help."
+                # Reset status after help is shown
+                self._status_text.value = "Use arrows to navigate, Enter to select, F1 for help"
+                self.screen.refresh()
             else:
-                self._menu_system.show_help("No command defined for this item.")
+                self._menu_system.show_help("No command defined for this item.\n\nPress Enter or Close to return to menu.")
     
     def process_event(self, event):
         """Process keyboard events."""
@@ -226,6 +457,7 @@ class MainMenuFrame(Frame):
         self._config = config
         self._menu_system = menu_system
         self._current_selection = 0
+        self._last_action_time = 0  # Prevent rapid duplicate actions
         
         # Main layout
         layout = Layout([100], fill_frame=True)
@@ -272,6 +504,12 @@ class MainMenuFrame(Frame):
     
     def _on_select(self):
         """Handle main menu selection."""
+        current_time = time.time()
+        # Prevent rapid duplicate selections (within 1 second)
+        if current_time - self._last_action_time < 1.0:
+            return
+        self._last_action_time = current_time
+        
         selection = self._menu_list.value
         
         if selection == -1:  # Command Shell
@@ -342,20 +580,32 @@ class MenuSystem:
     def show_help(self, help_text: str):
         """Display help information."""
         if self._screen:
+            # Store the current scene before showing help
+            previous_scene = self._current_scene
             try:
                 help_frame = HelpPanel(self._screen, help_text)
                 help_scene = Scene([help_frame], -1, name="help")
                 self._screen.play([help_scene], stop_on_resize=True, start_scene=help_scene)
             except StopApplication:
-                # Return to current scene after help is closed
-                if self._current_scene:
-                    self._screen.play([self._current_scene], stop_on_resize=True, start_scene=self._current_scene)
+                pass  # Help was closed
+            
+            # Always return to the previous scene
+            if previous_scene:
+                self._current_scene = previous_scene
+                self._screen.play([self._current_scene], stop_on_resize=True, start_scene=self._current_scene)
     
     def open_shell(self):
         """Open an interactive command shell."""
         if self._screen:
-            # Temporarily exit the TUI to run shell
-            raise StopApplication("Open shell")
+            try:
+                shell_frame = ShellFrame(self._screen, self)
+                self._current_scene = Scene([shell_frame], -1, name="shell")
+                self._screen.play([self._current_scene], stop_on_resize=True, start_scene=self._current_scene)
+            except Exception as e:
+                # If shell frame fails, show error and return to menu
+                error_text = f"Shell Error: {e}\n\nFailed to create shell interface.\nReturning to main menu..."
+                self.show_help(error_text)
+                self.show_main_menu()
     
     def run(self):
         """Run the menu system."""
@@ -366,121 +616,12 @@ class MenuSystem:
             except ResizeScreenError:
                 # Handle screen resize
                 continue
-            except StopApplication as e:
-                if str(e) == "Open shell":
-                    print("DEBUG: Opening interactive shell...")
-                    self._run_interactive_shell()
-                    print("DEBUG: Shell session completed, restarting menu...")
-                    continue
-                else:
-                    print(f"DEBUG: StopApplication received: {e}")
-                    break
     
     def _run_with_screen(self, screen):
         """Run with screen context."""
         self._screen = screen
         self.show_main_menu()
     
-    def _run_interactive_shell(self):
-        """Run an interactive command shell."""
-        os.system('clear' if os.name == 'posix' else 'cls')
-        print("=" * 60)
-        print("Interactive Command Shell")
-        print("=" * 60)
-        print("Type commands and press Enter to execute them.")
-        print("Type 'exit' to return to the menu.")
-        print("Type 'help' for shell commands help.")
-        print("-" * 60)
-        
-        while True:
-            try:
-                # Get current directory for prompt
-                current_dir = os.getcwd()
-                prompt = f"[{os.path.basename(current_dir)}]$ "
-                
-                # Get user input
-                command = input(prompt).strip()
-                
-                if not command:
-                    continue
-                
-                # Handle exit command - be very explicit about this
-                command_clean = command.lower().strip()
-                if command_clean in ['exit', 'quit']:
-                    print(f"\nDetected exit command: '{command_clean}'")
-                    print("Returning to menu...")
-                    break
-                
-                # Handle help command
-                if command.lower() == 'help':
-                    print("\nAvailable commands:")
-                    print("  help    - Show this help")
-                    print("  exit    - Return to menu (NOT shell exit!)")
-                    print("  quit    - Return to menu")
-                    print("  clear   - Clear screen")
-                    print("  pwd     - Show current directory")
-                    print("  ls      - List directory contents")
-                    print("  cd <dir> - Change directory")
-                    print("  Any other shell command...")
-                    print("\nIMPORTANT: Type 'exit' to return to menu, not to exit the shell!")
-                    print()
-                    continue
-                
-                # Handle clear command
-                if command.lower() == 'clear':
-                    os.system('clear' if os.name == 'posix' else 'cls')
-                    print("Interactive Command Shell - Type 'exit' to return to menu")
-                    print("-" * 60)
-                    continue
-                
-                # Handle cd command specially
-                if command.startswith('cd '):
-                    try:
-                        new_dir = command[3:].strip()
-                        if not new_dir:
-                            new_dir = os.path.expanduser('~')
-                        os.chdir(os.path.expanduser(new_dir))
-                        print(f"Changed directory to: {os.getcwd()}")
-                    except Exception as e:
-                        print(f"cd: {e}")
-                    continue
-                
-                # Prevent shell exit commands from terminating our application
-                if command.lower().strip() in ['exit', 'quit', 'logout']:
-                    print("To return to menu, just type: exit")
-                    print("(Don't use shell exit commands)")
-                    continue
-                
-                # Execute other commands
-                try:
-                    result = subprocess.run(command, shell=True, text=True)
-                    # subprocess.run with shell=True will automatically display output
-                    # No need to capture it for interactive shell
-                    if result.returncode != 0:
-                        print(f"\n[Command exited with code {result.returncode}]")
-                except Exception as e:
-                    print(f"Error executing command: {e}")
-                
-                print()  # Add blank line after command output
-                
-            except KeyboardInterrupt:
-                print("\n\nUse 'exit' to return to menu.")
-                continue
-            except EOFError:
-                print("\nReturning to menu...")
-                break
-        
-        # Brief pause before returning to menu
-        print("\n" + "=" * 60)
-        print("Shell session ended. Returning to menu...")
-        print("Press Enter to continue...")
-        try:
-            input()
-        except (KeyboardInterrupt, EOFError):
-            print("Forcing return to menu...")
-        
-        os.system('clear' if os.name == 'posix' else 'cls')
-        print("DEBUG: Shell cleanup complete, returning to menu system...")
 
 
 def main():
