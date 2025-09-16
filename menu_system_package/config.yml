@@ -1,0 +1,40 @@
+menu_title: RHCI Instructor VT Toolkit
+
+menu_items:
+  - name: Initial Setup
+    column: 1  # This menu item will be in the first column
+    button_info: |
+      This will perform initial setup tasks
+    items:
+      - name: Setup Ansible Inventory
+        command: echo "Sets up Ansible Inventory"
+        button_info: |
+          This will setup the Ansible Inventory. It runs the playbook blah blah blah.
+      - name: Setup SSH Files
+        command: echo "Sets up SSH Files"
+      - name: Setup DNS
+        command: echo "Sets up DNS configuration"
+      - name: Setup Network
+        command: echo "Sets up network configuration"
+        
+  - name: Perform RHCI Foundation Testing    # No submenu_columns defined, defaults to 1 column
+    items:
+      - name: Test Installation
+        command: echo "Tests the installation"
+      - name: Test Connectivity
+        command: echo "Tests connectivity between nodes"
+        
+  - name: Fix Bastion Items
+    items:
+      - name: Fix Bastion MTU
+        command: echo "Fixes Bastion MTU"
+      - name: Fix Bastion DNS
+        command: echo "Fixes Bastion DNS"
+      - name: Fix Bastion Network
+        command: echo "Fixes Bastion Network"
+        
+  - name: Fix Workstation Items
+    items:
+      - name: Fix Workstation MTU
+        command: ./greeting.sh
+      # Items without column specified default to column 1
